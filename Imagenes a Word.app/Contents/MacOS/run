@@ -1,0 +1,10 @@
+#!/bin/zsh
+APP_DIR="$(dirname "$(dirname "$(dirname "$0")")")"
+SCRIPT_DIR="$(dirname "$APP_DIR")"
+cd "$SCRIPT_DIR"
+
+# Abrir navegador después de un pequeño delay
+(sleep 2 && open "http://localhost:5001") &
+
+# Iniciar servidor
+".venv/bin/python" app.py

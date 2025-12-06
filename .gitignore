@@ -1,0 +1,37 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Archivos temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Archivos de Word temporales
+~$*.docx
+*.tmp
+
+# Carpetas de imágenes de prueba
+test_images/
+images/
+carpeta sin título/
+
+# Archivos generados
+output.docx
+*.docx
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archivos de IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
