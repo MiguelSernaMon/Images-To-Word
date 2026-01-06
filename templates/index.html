@@ -173,6 +173,60 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+
+        .analyze-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(245, 87, 108, 0.4);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .metadata-results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .metadata-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .metadata-filename {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .metadata-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 3px 0;
+        }
         
         .status {
             text-align: center;
@@ -330,6 +384,34 @@
                     </label>
                 </div>
             </div>
+
+            <div class="mode-selector">
+                <p class="mode-title">Ordenar imágenes por:</p>
+                <div class="mode-options">
+                    <label class="mode-option">
+                        <input type="radio" name="sort_by" value="name" checked>
+                        <div class="mode-card">
+                            <span class="mode-icon">🔤</span>
+                            <span class="mode-name">Nombre de archivo</span>
+                            <span class="mode-desc">Orden alfabético</span>
+                        </div>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="sort_by" value="metadata">
+                        <div class="mode-card">
+                            <span class="mode-icon">�</span>
+                            <span class="mode-name">Fecha de envío</span>
+                            <span class="mode-desc">Cronológicamente (más antigua a más reciente)</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <button class="analyze-btn" id="analyzeBtn" disabled>
+                🔍 Analizar Metadata
+            </button>
+
+            <div class="metadata-results" id="metadataResults"></div>
             
             <button class="convert-btn" id="convertBtn" disabled>
                 🔄 Convertir a Word
@@ -339,8 +421,8 @@
         </div>
         
         <p class="footer">
-            Las imágenes se ordenarán alfabéticamente por nombre<br>
-            <small>Modo Grid 2x2: 4 imágenes por página ocupando toda la superficie</small>
+            💡 <strong>Ordenar por fecha de envío:</strong> Muestra fecha y hora encima de cada imagen<br>
+            <small>Grid 2x2: 4 imágenes por página · Fecha extraída de metadata y nombre de archivo</small>
         </p>
     </div>
     
@@ -352,6 +434,8 @@
         const previewTitle = document.getElementById('previewTitle');
         const clearBtn = document.getElementById('clearBtn');
         const convertBtn = document.getElementById('convertBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const metadataResults = document.getElementById('metadataResults');
         const status = document.getElementById('status');
         
         let selectedFiles = [];
@@ -395,11 +479,14 @@
             if (selectedFiles.length === 0) {
                 previewSection.style.display = 'none';
                 convertBtn.disabled = true;
+                analyzeBtn.disabled = true;
+                metadataResults.style.display = 'none';
                 return;
             }
             
             previewSection.style.display = 'block';
             convertBtn.disabled = false;
+            analyzeBtn.disabled = false;
             previewTitle.textContent = `${selectedFiles.length} imagen${selectedFiles.length > 1 ? 'es' : ''} seleccionada${selectedFiles.length > 1 ? 's' : ''}`;
             
             previewGrid.innerHTML = '';
@@ -426,6 +513,63 @@
             fileInput.value = '';
             updatePreview();
             status.className = 'status';
+            metadataResults.style.display = 'none';
+        });
+
+        // Analizar Metadata
+        analyzeBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+            
+            analyzeBtn.disabled = true;
+            status.className = 'status loading';
+            status.innerHTML = '<span class="spinner"></span>Analizando metadata...';
+            metadataResults.style.display = 'none';
+            
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('images', file);
+            });
+            
+            try {
+                const response = await fetch('/analyze_metadata', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error al analizar');
+                }
+                
+                const data = await response.json();
+                
+                // Mostrar resultados
+                metadataResults.style.display = 'block';
+                metadataResults.innerHTML = `
+                    <h3 style="margin-bottom: 15px; color: #333;">📊 Metadata de ${data.total_images} imágenes:</h3>
+                `;
+                
+                data.metadata.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'metadata-item';
+                    div.innerHTML = `
+                        <div class="metadata-filename">${item.filename}</div>
+                        <div class="metadata-info">👤 Remitente: ${item.sender}</div>
+                        <div class="metadata-info">📅 Fecha/Hora: ${item.datetime}</div>
+                        <div class="metadata-info">🕒 Modificado: ${item.file_mtime}</div>
+                    `;
+                    metadataResults.appendChild(div);
+                });
+                
+                status.className = 'status success';
+                status.textContent = '✅ Análisis completado. Revisa los resultados abajo.';
+                
+            } catch (error) {
+                status.className = 'status error';
+                status.textContent = '❌ ' + error.message;
+            } finally {
+                analyzeBtn.disabled = false;
+            }
         });
         
         // Convertir
@@ -444,6 +588,10 @@
             // Agregar modo seleccionado
             const mode = document.querySelector('input[name="mode"]:checked').value;
             formData.append('mode', mode);
+            
+            // Agregar método de ordenamiento
+            const sortBy = document.querySelector('input[name="sort_by"]:checked').value;
+            formData.append('sort_by', sortBy);
             
             try {
                 const response = await fetch('/convert', {
